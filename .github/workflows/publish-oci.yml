@@ -116,7 +116,7 @@ jobs:
       registry: ${{ inputs.registry || 'ghcr.io' }}
       description: Brotli native overlays + thin CFFI for cl-stack Content-Encoding
       license: MIT
-      depends-on: cffi
+      depends-on: cffi trivial-gray-streams
       provides: cl-stack-brotli
       cffi-libraries: libbrotlicommon libbrotlidec libbrotlienc
       source-paths: |
