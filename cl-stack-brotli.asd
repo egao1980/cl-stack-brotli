@@ -3,12 +3,14 @@
   :description "Brotli native overlays + thin CFFI for cl-stack Content-Encoding"
   :author "egao1980"
   :license "MIT"
-  :depends-on ("cffi")
+  :depends-on ("cffi" "trivial-gray-streams")
   :serial t
   :pathname "src"
   :components ((:file "package")
                (:file "ffi")
-               (:file "api"))
+               (:file "api")
+               (:file "streams"))
+  :in-order-to ((test-op (test-op "cl-stack-brotli/tests")))
   :properties
   (:cl-repo
    (:cffi-libraries ("libbrotlicommon" "libbrotlidec" "libbrotlienc")
@@ -34,3 +36,12 @@
                 :files (("lib/windows-amd64/brotlicommon.dll" . "brotlicommon.dll")
                         ("lib/windows-amd64/brotlidec.dll" . "brotlidec.dll")
                         ("lib/windows-amd64/brotlienc.dll" . "brotlienc.dll")))))))))
+
+(defsystem "cl-stack-brotli/tests"
+  :depends-on ("cl-stack-brotli" "rove")
+  :pathname "tests"
+  :serial t
+  :components ((:file "package")
+               (:file "api-test")
+               (:file "streams-test"))
+  :perform (test-op (o c) (symbol-call :rove :run c)))
