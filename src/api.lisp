@@ -11,12 +11,76 @@
 
 (defvar *brotli-loaded* nil)
 
+(defun %host-os ()
+  #+windows "windows"
+  #+darwin "darwin"
+  #+linux "linux"
+  #-(or windows darwin linux) "unknown")
+
+(defun %host-arch ()
+  #+(or x86-64 x64) "amd64"
+  #+(or arm64 aarch64) "arm64"
+  #-(or x86-64 x64 arm64 aarch64) "unknown")
+
+(defun %native-search-dirs ()
+  "Overlay native/ (OCI) and lib/<os>-<arch>/ (local build). No LD_LIBRARY_PATH."
+  (let ((dirs '()))
+    (let ((v (uiop:getenv "CL_STACK_BROTLI_NATIVE")))
+      (when (and v (plusp (length v)))
+        (push v dirs)))
+    (ignore-errors
+      (let* ((sys (asdf:find-system :cl-stack-brotli nil))
+             (root (when sys (asdf:system-source-directory sys))))
+        (when root
+          (push (namestring (merge-pathnames "native/" root)) dirs)
+          (push (namestring
+                 (merge-pathnames (format nil "lib/~A-~A/" (%host-os) (%host-arch)) root))
+                dirs))))
+    (nreverse dirs)))
+
+(defun %lib-candidates (base)
+  "Filenames to try under a native dir for BASE (e.g. \"libbrotlicommon\")."
+  #+windows
+  (list (format nil "~A.dll" (subseq base 3)) ; brotlicommon.dll
+        (format nil "~A.dll" base)
+        (format nil "lib~A.dll" (subseq base 3)))
+  #+darwin
+  (list (format nil "~A.dylib" base)
+        (format nil "~A.1.dylib" base))
+  #+(and unix (not darwin))
+  (list (format nil "~A.so" base)
+        (format nil "~A.so.1" base))
+  #-(or windows darwin unix)
+  (list (format nil "~A.so" base)))
+
+(defun %find-lib (dir base)
+  (dolist (name (%lib-candidates base))
+    (let ((p (merge-pathnames name (uiop:ensure-directory-pathname dir))))
+      (when (probe-file p)
+        (return (namestring (truename p)))))))
+
+(defun %absolute-preload (dir)
+  "Load common → dec → enc by absolute path (cl-repository post-install policy)."
+  (let ((paths (mapcar (lambda (b) (%find-lib dir b))
+                       '("libbrotlicommon" "libbrotlidec" "libbrotlienc"))))
+    (when (every #'identity paths)
+      (dolist (p paths)
+        (load-foreign-library p))
+      t)))
+
 (defun ensure-brotli ()
-  "Load native libbrotli* (overlay native/ must be on CFFI / loader path)."
+  "Load native libbrotli* via CFFI search path / absolute preload — not LD_LIBRARY_PATH."
   (unless *brotli-loaded*
-    (load-foreign-library 'libbrotlicommon)
-    (load-foreign-library 'libbrotlidec)
-    (load-foreign-library 'libbrotlienc)
+    (let ((preloaded nil))
+      (dolist (dir (%native-search-dirs))
+        (when (and dir (uiop:directory-exists-p dir))
+          (pushnew dir cffi:*foreign-library-directories* :test #'equal)
+          (unless preloaded
+            (setf preloaded (%absolute-preload dir)))))
+      (unless preloaded
+        (load-foreign-library 'libbrotlicommon)
+        (load-foreign-library 'libbrotlidec)
+        (load-foreign-library 'libbrotlienc)))
     (setf *brotli-loaded* t))
   (values t +brotli-version+))
 
@@ -89,7 +153,6 @@
                               (incf off (length p)))
                             result)))
                        (:needs-more-output
-                        ;; grow and continue with remaining input
                         (setf cap (* 2 cap)))
                        (:needs-more-input
                         (error 'brotli-error :message "truncated Brotli input"))

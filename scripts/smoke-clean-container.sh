@@ -48,10 +48,11 @@ if [[ ! -f "$QL/setup.lisp" ]]; then
            --eval "(quicklisp-quickstart:install :path #p\"/ql/\")" >/dev/null'
 fi
 
+# Resolve natives via cffi:*foreign-library-directories* + absolute preload in
+# ensure-brotli — never LD_LIBRARY_PATH (ignored mid-process on Linux anyway).
 docker run --rm --platform linux/amd64 \
   -e DEBIAN_FRONTEND=noninteractive \
   -e CL_STACK_BROTLI_ROOT=/opt/cl-stack-brotli \
-  -e LD_LIBRARY_PATH=/opt/cl-stack-brotli/native \
   -v "$PKG:/opt/cl-stack-brotli:ro" \
   -v "$QL:/ql:ro" \
   -v "$SMOKE_LISP:/opt/smoke.lisp:ro" \
