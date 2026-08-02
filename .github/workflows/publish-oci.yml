@@ -1,0 +1,128 @@
+# Build Brotli shared libs (full matrix) + publish via cl-repository reusable workflow.
+name: Publish OCI Package
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Package / Brotli version (default: from tag or 1.2.0)"
+        required: false
+        default: ""
+      registry:
+        description: "OCI registry (default: ghcr.io)"
+        required: false
+        default: "ghcr.io"
+
+env:
+  BROTLI_VERSION_DEFAULT: "1.2.0"
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+            runner: ubuntu-latest
+          - os: linux
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - os: darwin
+            arch: arm64
+            runner: macos-latest
+          - os: windows
+            arch: amd64
+            runner: windows-latest
+
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build deps (Linux)
+        if: matrix.os == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake curl patchelf
+
+      - name: Install build deps (macOS)
+        if: matrix.os == 'darwin'
+        run: brew install cmake || true
+
+      - name: Resolve Brotli version
+        id: ver
+        shell: pwsh
+        run: |
+          $V = "${{ inputs.version }}"
+          if ([string]::IsNullOrEmpty($V) -and $env:GITHUB_REF_NAME -like 'v*') {
+            $V = $env:GITHUB_REF_NAME.Substring(1)
+          }
+          if ([string]::IsNullOrEmpty($V)) { $V = $env:BROTLI_VERSION_DEFAULT }
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "version=$V"
+          Write-Host "Brotli/package version=$V"
+
+      - name: Build Brotli shared libs (Unix)
+        if: matrix.os != 'windows'
+        env:
+          BROTLI_VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          chmod +x scripts/build-brotli.sh
+          ./scripts/build-brotli.sh
+          mkdir -p native-bundle
+          cp -a "lib/${{ matrix.os }}-${{ matrix.arch }}/." native-bundle/
+
+      - name: Build Brotli shared libs (Windows)
+        if: matrix.os == 'windows'
+        shell: pwsh
+        env:
+          BROTLI_VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          .\scripts\build-brotli.ps1
+          New-Item -ItemType Directory -Force -Path native-bundle | Out-Null
+          Copy-Item -Path "lib\${{ matrix.os }}-${{ matrix.arch }}\*" -Destination native-bundle -Recurse -Force
+
+      - name: Upload native artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.os }}-${{ matrix.arch }}
+          path: native-bundle/
+
+  resolve-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+    steps:
+      - id: ver
+        shell: bash
+        run: |
+          V="${{ inputs.version }}"
+          if [ -z "$V" ] && [[ "${GITHUB_REF_NAME}" == v* ]]; then
+            V="${GITHUB_REF_NAME#v}"
+          fi
+          [ -z "$V" ] && V="${BROTLI_VERSION_DEFAULT}"
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: [build, resolve-version]
+    permissions:
+      contents: read
+      packages: write
+    uses: egao1980/cl-repository/.github/workflows/publish-native-package.yml@main
+    with:
+      package-name: cl-stack-brotli
+      version: ${{ needs.resolve-version.outputs.version }}
+      registry: ${{ inputs.registry || 'ghcr.io' }}
+      description: Brotli native overlays + thin CFFI for cl-stack Content-Encoding
+      license: MIT
+      depends-on: cffi
+      provides: cl-stack-brotli
+      cffi-libraries: libbrotlicommon libbrotlidec libbrotlienc
+      source-paths: |
+        cl-stack-brotli.asd
+        src
+        LICENSE
+        README.md
+        NOTICE
+    secrets: inherit
