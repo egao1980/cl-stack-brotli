@@ -107,25 +107,51 @@
           result)))))
 
 (defun decompress (octets)
-  "Decompress Brotli OCTETS. Returns (unsigned-byte 8) vector."
+  "Decompress Brotli OCTETS. Returns (unsigned-byte 8) vector.
+   Uses the streaming decoder — one-shot BrotliDecoderDecompress maps
+   NEEDS_MORE_OUTPUT to ERROR, so growing a one-shot buffer is unreliable."
   (%load-native)
   (let* ((in (%octet-vector octets))
          (in-len (length in))
-         (cap (max 1024 (* 8 in-len))))
-    (loop
-      (with-foreign-object (decoded-size :size)
-        (setf (mem-ref decoded-size :size) cap)
-        (with-foreign-object (out :uint8 cap)
-          (with-pointer-to-vector-data (in-ptr in)
-            (let ((res (%decoder-decompress in-len in-ptr decoded-size out)))
-              (ecase res
-                (:success
-                 (let* ((n (mem-ref decoded-size :size))
-                        (result (make-array n :element-type '(unsigned-byte 8))))
-                   (dotimes (i n)
-                     (setf (aref result i) (mem-aref out :uint8 i)))
-                   (return result)))
-                (:needs-more-output
-                 (setf cap (* 2 cap)))
-                ((:error :needs-more-input)
-                 (error 'brotli-error :message "BrotliDecoderDecompress failed"))))))))))
+         (state (%decoder-create (null-pointer) (null-pointer) (null-pointer))))
+    (when (null-pointer-p state)
+      (error 'brotli-error :message "BrotliDecoderCreateInstance failed"))
+    (unwind-protect
+         (let* ((chunk (max 4096 (* 4 (max in-len 1))))
+                (out (foreign-alloc :uint8 :count chunk))
+                (result (make-array 0 :element-type '(unsigned-byte 8)
+                                       :adjustable t :fill-pointer 0)))
+           (unwind-protect
+                (with-pointer-to-vector-data (in-ptr in)
+                  (with-foreign-objects ((avail-in :size)
+                                         (next-in :pointer)
+                                         (avail-out :size)
+                                         (next-out :pointer)
+                                         (total-out :size))
+                    (setf (mem-ref avail-in :size) in-len
+                          (mem-ref next-in :pointer)
+                          (if (plusp in-len) in-ptr (null-pointer)))
+                    (loop
+                      (setf (mem-ref avail-out :size) chunk
+                            (mem-ref next-out :pointer) out
+                            (mem-ref total-out :size) 0)
+                      (let ((res (%decoder-decompress-stream
+                                  state avail-in next-in avail-out next-out total-out)))
+                        (let ((produced (- chunk (mem-ref avail-out :size))))
+                          (dotimes (i produced)
+                            (vector-push-extend (mem-aref out :uint8 i) result))
+                          (ecase res
+                            (:success
+                             (return
+                               (coerce result '(simple-array (unsigned-byte 8) (*)))))
+                            (:needs-more-output
+                             ;; keep looping with same input remainder
+                             )
+                            (:needs-more-input
+                             (error 'brotli-error
+                                    :message "truncated Brotli stream"))
+                            (:error
+                             (error 'brotli-error
+                                    :message "BrotliDecoderDecompressStream failed"))))))))
+             (foreign-free out)))
+      (%decoder-destroy state))))

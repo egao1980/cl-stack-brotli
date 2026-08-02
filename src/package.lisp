@@ -3,4 +3,8 @@
   (:export #:+brotli-version+
            #:brotli-error
            #:compress
-           #:decompress))
+           #:decompress
+           #:make-decompressing-stream
+           #:make-compressing-stream
+           #:brotli-decompressing-stream
+           #:brotli-compressing-stream))
