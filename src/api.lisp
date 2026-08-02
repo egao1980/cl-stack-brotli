@@ -40,18 +40,14 @@
 
 (defun %lib-candidates (base)
   "Filenames to try under a native dir for BASE (e.g. \"libbrotlicommon\")."
-  #+windows
-  (list (format nil "~A.dll" (subseq base 3)) ; brotlicommon.dll
-        (format nil "~A.dll" base)
-        (format nil "lib~A.dll" (subseq base 3)))
-  #+darwin
-  (list (format nil "~A.dylib" base)
-        (format nil "~A.1.dylib" base))
-  #+(and unix (not darwin))
-  (list (format nil "~A.so" base)
-        (format nil "~A.so.1" base))
-  #-(or windows darwin unix)
-  (list (format nil "~A.so" base)))
+  (append
+   #+windows (list (format nil "~A.dll" (subseq base 3))
+                   (format nil "~A.dll" base))
+   #+darwin (list (format nil "~A.dylib" base)
+                  (format nil "~A.1.dylib" base))
+   #+(and unix (not darwin)) (list (format nil "~A.so" base)
+                                   (format nil "~A.so.1" base))
+   (list (format nil "~A.so" base))))
 
 (defun %find-lib (dir base)
   (dolist (name (%lib-candidates base))
@@ -64,13 +60,11 @@
   (let ((paths (mapcar (lambda (b) (%find-lib dir b))
                        '("libbrotlicommon" "libbrotlidec" "libbrotlienc"))))
     (when (every #'identity paths)
-      (dolist (p paths)
-        (load-foreign-library p))
+      (mapc #'load-foreign-library paths)
       t)))
 
 (defun %load-native ()
-  "Load libbrotli* via CFFI search path / absolute preload (not LD_LIBRARY_PATH).
-   Invoked at ASDF load — consumers just call COMPRESS / DECOMPRESS."
+  "Load libbrotli* via CFFI search path / absolute preload (not LD_LIBRARY_PATH)."
   (unless *brotli-loaded*
     (let ((preloaded nil))
       (dolist (dir (%native-search-dirs))
@@ -108,7 +102,8 @@
             (error 'brotli-error :message "BrotliEncoderCompress failed")))
         (let* ((n (mem-ref out-size :size))
                (result (make-array n :element-type '(unsigned-byte 8))))
-          (loop for i below n do (setf (aref result i) (mem-aref out :uint8 i)))
+          (dotimes (i n)
+            (setf (aref result i) (mem-aref out :uint8 i)))
           result)))))
 
 (defun decompress (octets)
@@ -116,47 +111,21 @@
   (%load-native)
   (let* ((in (%octet-vector octets))
          (in-len (length in))
-         (state (%decoder-create (null-pointer) (null-pointer) (null-pointer))))
-    (when (null-pointer-p state)
-      (error 'brotli-error :message "BrotliDecoderCreateInstance failed"))
-    (unwind-protect
-         (with-foreign-objects ((avail-in :size)
-                                (next-in :pointer)
-                                (avail-out :size)
-                                (next-out :pointer)
-                                (total-out :size))
-           (with-pointer-to-vector-data (in-ptr in)
-             (setf (mem-ref avail-in :size) in-len
-                   (mem-ref next-in :pointer) in-ptr
-                   (mem-ref total-out :size) 0)
-             (let ((cap (max 1024 (* 4 in-len)))
-                   (chunks nil))
-               (loop
-                 (with-foreign-object (out :uint8 cap)
-                   (setf (mem-ref avail-out :size) cap
-                         (mem-ref next-out :pointer) out)
-                   (let ((res (%decoder-decompress-stream
-                               state avail-in next-in avail-out next-out total-out)))
-                     (let* ((produced (- cap (mem-ref avail-out :size)))
-                            (chunk (make-array produced :element-type '(unsigned-byte 8))))
-                       (loop for i below produced
-                             do (setf (aref chunk i) (mem-aref out :uint8 i)))
-                       (push chunk chunks))
-                     (ecase res
-                       (:success
-                        (return
-                          (let* ((parts (nreverse chunks))
-                                 (total (reduce #'+ parts :key #'length))
-                                 (result (make-array total :element-type '(unsigned-byte 8)))
-                                 (off 0))
-                            (dolist (p parts)
-                              (replace result p :start1 off)
-                              (incf off (length p)))
-                            result)))
-                       (:needs-more-output
-                        (setf cap (* 2 cap)))
-                       (:needs-more-input
-                        (error 'brotli-error :message "truncated Brotli input"))
-                       (:error
-                        (error 'brotli-error :message "BrotliDecoderDecompressStream failed"))))))))
-      (%decoder-destroy state))))
+         (cap (max 1024 (* 8 in-len))))
+    (loop
+      (with-foreign-object (decoded-size :size)
+        (setf (mem-ref decoded-size :size) cap)
+        (with-foreign-object (out :uint8 cap)
+          (with-pointer-to-vector-data (in-ptr in)
+            (let ((res (%decoder-decompress in-len in-ptr decoded-size out)))
+              (ecase res
+                (:success
+                 (let* ((n (mem-ref decoded-size :size))
+                        (result (make-array n :element-type '(unsigned-byte 8))))
+                   (dotimes (i n)
+                     (setf (aref result i) (mem-aref out :uint8 i)))
+                   (return result)))
+                (:needs-more-output
+                 (setf cap (* 2 cap)))
+                ((:error :needs-more-input)
+                 (error 'brotli-error :message "BrotliDecoderDecompress failed"))))))))))
