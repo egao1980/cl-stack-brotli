@@ -24,11 +24,8 @@ platform overlays, plus a thin CFFI `compress` / `decompress` API for HTTP
 ## Consumer
 
 ```lisp
-;; cl-repository install writes cl-repo-init.lisp (pushes native/ + absolute preload).
-;; Local/ASDF: ensure-brotli pushes system native/ and lib/<os>-<arch>/ onto
-;; cffi:*foreign-library-directories* — do not set LD_LIBRARY_PATH.
+;; cl-repository: cl-repo-init.lisp preloads native/. No ensure-*, no LD_LIBRARY_PATH.
 (asdf:load-system "cl-stack-brotli")
-(cl-stack-brotli:ensure-brotli) ; => T, "1.2.0"
 (cl-stack-brotli:decompress (cl-stack-brotli:compress octets))
 ```
 

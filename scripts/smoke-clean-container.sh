@@ -24,8 +24,7 @@ cat >"$SMOKE_LISP" <<'EOF'
  `(:source-registry (:directory ,(uiop:ensure-directory-pathname *pkg*))
                     :inherit-configuration))
 (ql:quickload '("cffi" "cl-stack-brotli") :silent t)
-(multiple-value-bind (ok ver) (cl-stack-brotli:ensure-brotli)
-  (format t "~&ensure-brotli => ~A ~A~%" ok ver))
+(format t "~&+brotli-version+ => ~A~%" cl-stack-brotli:+brotli-version+)
 (let* ((s "hello brotli overlay")
        (raw (map '(simple-array (unsigned-byte 8) (*)) #'char-code s))
        (enc (cl-stack-brotli:compress raw :quality 5))
@@ -48,8 +47,7 @@ if [[ ! -f "$QL/setup.lisp" ]]; then
            --eval "(quicklisp-quickstart:install :path #p\"/ql/\")" >/dev/null'
 fi
 
-# Resolve natives via cffi:*foreign-library-directories* + absolute preload in
-# ensure-brotli — never LD_LIBRARY_PATH (ignored mid-process on Linux anyway).
+# Resolve natives via CFFI at ASDF load — never LD_LIBRARY_PATH.
 docker run --rm --platform linux/amd64 \
   -e DEBIAN_FRONTEND=noninteractive \
   -e CL_STACK_BROTLI_ROOT=/opt/cl-stack-brotli \

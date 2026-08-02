@@ -68,8 +68,9 @@
         (load-foreign-library p))
       t)))
 
-(defun ensure-brotli ()
-  "Load native libbrotli* via CFFI search path / absolute preload — not LD_LIBRARY_PATH."
+(defun %load-native ()
+  "Load libbrotli* via CFFI search path / absolute preload (not LD_LIBRARY_PATH).
+   Invoked at ASDF load — consumers just call COMPRESS / DECOMPRESS."
   (unless *brotli-loaded*
     (let ((preloaded nil))
       (dolist (dir (%native-search-dirs))
@@ -92,7 +93,7 @@
 
 (defun compress (octets &key (quality 11) (mode :generic) (lgwin 22))
   "Compress OCTETS with Brotli. QUALITY 0..11 (default 11). Returns (unsigned-byte 8) vector."
-  (ensure-brotli)
+  (%load-native)
   (check-type quality (integer 0 11))
   (let* ((in (%octet-vector octets))
          (in-len (length in))
@@ -112,7 +113,7 @@
 
 (defun decompress (octets)
   "Decompress Brotli OCTETS. Returns (unsigned-byte 8) vector."
-  (ensure-brotli)
+  (%load-native)
   (let* ((in (%octet-vector octets))
          (in-len (length in))
          (state (%decoder-create (null-pointer) (null-pointer) (null-pointer))))
