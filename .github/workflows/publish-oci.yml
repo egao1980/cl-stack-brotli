@@ -114,11 +114,7 @@ jobs:
       package-name: cl-stack-brotli
       version: ${{ needs.resolve-version.outputs.version }}
       registry: ${{ inputs.registry || 'ghcr.io' }}
-      description: Brotli native overlays + thin CFFI for cl-stack Content-Encoding
-      license: MIT
-      depends-on: cffi trivial-gray-streams
-      provides: cl-stack-brotli
-      cffi-libraries: libbrotlicommon libbrotlidec libbrotlienc
+      packager-tag: "0.10.0"
       source-paths: |
         cl-stack-brotli.asd
         src
