@@ -72,7 +72,9 @@ jobs:
       - uses: egao1980/cl-repository/.github/actions/ci@main
         with:
           phase: install
+          system: cl-stack-brotli
 
       - uses: egao1980/cl-repository/.github/actions/ci@main
         with:
           phase: test
+          system: cl-stack-brotli
