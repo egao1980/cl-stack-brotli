@@ -35,8 +35,7 @@
       :layers ((:role "native-library"
                 :files (("lib/windows-amd64/brotlicommon.dll" . "brotlicommon.dll")
                         ("lib/windows-amd64/brotlidec.dll" . "brotlidec.dll")
-                        ("lib/windows-amd64/brotlienc.dll" . "brotlienc.dll"))))))
-    :ci (:sources (("rove" :ql))))))
+                        ("lib/windows-amd64/brotlienc.dll" . "brotlienc.dll")))))))))
 
 (defsystem "cl-stack-brotli/tests"
   :depends-on ("cl-stack-brotli" "rove")
