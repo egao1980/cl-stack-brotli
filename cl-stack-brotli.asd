@@ -3,13 +3,14 @@
   :description "Brotli native overlays + thin CFFI for cl-stack Content-Encoding"
   :author "egao1980"
   :license "MIT"
-  :depends-on ("cffi" "trivial-gray-streams")
+  :depends-on ("cffi" "trivial-gray-streams" "compression-protocol")
   :serial t
   :pathname "src"
   :components ((:file "package")
                (:file "ffi")
                (:file "api")
-               (:file "streams"))
+               (:file "streams")
+               (:file "compression"))
   :in-order-to ((test-op (test-op "cl-stack-brotli/tests")))
   :properties
   (:cl-repo
@@ -43,7 +44,8 @@
   :serial t
   :components ((:file "package")
                (:file "api-test")
-               (:file "streams-test"))
+               (:file "streams-test")
+               (:file "protocol-test"))
   :perform (test-op (o c)
              (unless (symbol-call :rove :run c)
                (error "tests failed for ~A" (component-name c)))))

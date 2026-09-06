@@ -2,8 +2,9 @@
 
 MIT. Ships **Brotli** shared libraries (`libbrotlicommon` + `libbrotlidec` +
 `libbrotlienc`) as [cl-repository](https://github.com/egao1980/cl-repository)
-platform overlays, plus a thin CFFI `compress` / `decompress` API for HTTP
-`Content-Encoding: br`.
+platform overlays, plus CFFI and [`compression-protocol`](https://github.com/egao1980/compression-protocol)
+methods for `:br`. HTTP `Content-Encoding: br` is
+[`http-encoding-brotli`](https://github.com/egao1980/http-encoding-brotli).
 
 | | |
 |--|--|
@@ -24,9 +25,11 @@ platform overlays, plus a thin CFFI `compress` / `decompress` API for HTTP
 ## Consumer
 
 ```lisp
-;; cl-repository: cl-repo-init.lisp preloads native/. No ensure-*, no LD_LIBRARY_PATH.
+;; Lisp API is compression-protocol. CFFI stays internal.
 (asdf:load-system "cl-stack-brotli")
-(cl-stack-brotli:decompress (cl-stack-brotli:compress octets))
+(compression-protocol:decompress
+ (compression-protocol:compress octets :algorithm :br)
+ :algorithm :br)
 ```
 
 Smoke (linux/amd64): `scripts/smoke-clean-container.sh` (no `LD_LIBRARY_PATH`).
