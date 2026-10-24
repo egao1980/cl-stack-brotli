@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Build shared libbrotli{common,dec,enc} into lib/<os>-<arch>/.
 # Usage: ./scripts/build-brotli.sh
-# Env: BROTLI_VERSION (default 1.2.0), DEST_DIR (optional override)
+# Env: BROTLI_VERSION (default 1.2.1), DEST_DIR (optional override)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-BROTLI_VERSION="${BROTLI_VERSION:-1.2.0}"
+BROTLI_VERSION="${BROTLI_VERSION:-1.2.1}"
 JOBS="$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)"
 
 uname_s="$(uname -s)"

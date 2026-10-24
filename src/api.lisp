@@ -1,7 +1,7 @@
 (in-package #:cl-stack-brotli)
 
 ;; defparameter: SBCL DEFCONSTANT on strings trips DEFCONSTANT-UNEQL on reload.
-(defparameter +brotli-version+ "1.2.0"
+(defparameter +brotli-version+ "1.2.1"
   "Brotli release this package version tracks (must match ASDF :version / OCI tag).")
 
 (define-condition brotli-error (error)

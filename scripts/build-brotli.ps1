@@ -1,11 +1,11 @@
 # Build shared brotli DLLs into lib/windows-amd64/.
 # Requires: Visual Studio Build Tools (cmake/cl), curl.
 # Usage: .\scripts\build-brotli.ps1
-# Env: BROTLI_VERSION (default 1.2.0), DEST_DIR (optional)
+# Env: BROTLI_VERSION (default 1.2.1), DEST_DIR (optional)
 $ErrorActionPreference = "Stop"
 
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$BrotliVersion = if ($env:BROTLI_VERSION) { $env:BROTLI_VERSION } else { "1.2.0" }
+$BrotliVersion = if ($env:BROTLI_VERSION) { $env:BROTLI_VERSION } else { "1.2.1" }
 $Os = "windows"
 $Arch = "amd64"
 $Out = if ($env:DEST_DIR) { $env:DEST_DIR } else { Join-Path $Root "lib\$Os-$Arch" }

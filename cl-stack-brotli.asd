@@ -1,5 +1,5 @@
 (defsystem "cl-stack-brotli"
-  :version "1.2.0"
+  :version "1.2.1"
   :description "Brotli native overlays + thin CFFI for cl-stack Content-Encoding"
   :author "egao1980"
   :license "MIT"
