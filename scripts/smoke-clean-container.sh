@@ -2,7 +2,7 @@
 # Clean ubuntu:24.04 linux/amd64 smoke against GHCR cl-stack-brotli.
 set -euo pipefail
 
-VERSION="${1:-1.2.0}"
+VERSION="${1:-1.2.1}"
 IMAGE="ghcr.io/egao1980/cl-systems/cl-stack-brotli:${VERSION}"
 CACHE="${CACHE:-/tmp/cl-stack-brotli-smoke-cache}"
 PKG="$CACHE/pkg/cl-stack-brotli-${VERSION}"

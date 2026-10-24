@@ -11,7 +11,7 @@ methods for `:br`. HTTP `Content-Encoding: br` is
 | ASDF | `cl-stack-brotli` |
 | GHCR | `ghcr.io/egao1980/cl-systems/cl-stack-brotli:<brotli-ver>` |
 | Tracks | [egao1980/cl-stack#45](https://github.com/egao1980/cl-stack/issues/45) |
-| Upstream | [google/brotli](https://github.com/google/brotli) **v1.2.0** |
+| Upstream | [google/brotli](https://github.com/google/brotli) **v1.2.1** |
 
 ## Platforms
 
@@ -37,6 +37,6 @@ Smoke (linux/amd64): `scripts/smoke-clean-container.sh` (no `LD_LIBRARY_PATH`).
 ## Build natives locally
 
 ```bash
-./scripts/build-brotli.sh          # BROTLI_VERSION=1.2.0 by default
+./scripts/build-brotli.sh          # BROTLI_VERSION=1.2.1 by default
 # → lib/<os>-<arch>/libbrotli*
 ```

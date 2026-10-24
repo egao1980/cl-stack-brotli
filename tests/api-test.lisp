@@ -1,7 +1,7 @@
 (in-package #:cl-stack-brotli/tests)
 
 (deftest version
-  (ok (string= +brotli-version+ "1.2.0")))
+  (ok (string= +brotli-version+ "1.2.1")))
 
 (deftest buffer-round-trip
   (let* ((raw (%bytes "hello brotli content-encoding"))
