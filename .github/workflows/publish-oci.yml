@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Package / Brotli version (default: from tag or 1.2.1)"
+        description: "Package version, upstream + revision (default: from tag or 1.2.1.1); Brotli builds from the first three parts"
         required: false
         default: ""
       registry:
@@ -16,7 +16,8 @@ on:
         default: "ghcr.io"
 
 env:
-  BROTLI_VERSION_DEFAULT: "1.2.1"
+  # Package version = upstream Brotli version + package revision (as cl-stack-ssl).
+  BROTLI_VERSION_DEFAULT: "1.2.1.1"
 
 jobs:
   build:
@@ -60,13 +61,15 @@ jobs:
             $V = $env:GITHUB_REF_NAME.Substring(1)
           }
           if ([string]::IsNullOrEmpty($V)) { $V = $env:BROTLI_VERSION_DEFAULT }
+          $U = (($V -split '\.')[0..2]) -join '.'
           Add-Content -Path $env:GITHUB_OUTPUT -Value "version=$V"
-          Write-Host "Brotli/package version=$V"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "upstream=$U"
+          Write-Host "package version=$V Brotli=$U"
 
       - name: Build Brotli shared libs (Unix)
         if: matrix.os != 'windows'
         env:
-          BROTLI_VERSION: ${{ steps.ver.outputs.version }}
+          BROTLI_VERSION: ${{ steps.ver.outputs.upstream }}
         run: |
           chmod +x scripts/build-brotli.sh
           ./scripts/build-brotli.sh
@@ -77,7 +80,7 @@ jobs:
         if: matrix.os == 'windows'
         shell: pwsh
         env:
-          BROTLI_VERSION: ${{ steps.ver.outputs.version }}
+          BROTLI_VERSION: ${{ steps.ver.outputs.upstream }}
         run: |
           .\scripts\build-brotli.ps1
           New-Item -ItemType Directory -Force -Path native-bundle | Out-Null
