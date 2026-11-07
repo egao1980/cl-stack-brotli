@@ -30,7 +30,6 @@
 
 (defun make-decompressing-stream (source)
   "Return a binary input stream that decompresses octets read from SOURCE."
-  (%load-native)
   (check-type source stream)
   (let ((state (%decoder-create (null-pointer) (null-pointer) (null-pointer))))
     (when (null-pointer-p state)
@@ -43,7 +42,6 @@
 
 (defun make-compressing-stream (source &key (quality 5) (lgwin 22) (mode :generic))
   "Return a binary input stream that compresses octets read from SOURCE."
-  (%load-native)
   (check-type source stream)
   (check-type quality (integer 0 11))
   (let ((state (%encoder-create (null-pointer) (null-pointer) (null-pointer))))

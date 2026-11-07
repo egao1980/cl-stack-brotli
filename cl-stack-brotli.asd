@@ -1,12 +1,18 @@
 (defsystem "cl-stack-brotli"
-  :version "1.2.1"
+  :version "1.2.1.1"
   :description "Brotli native overlays + thin CFFI for cl-stack Content-Encoding"
   :author "egao1980"
   :license "MIT"
+  :defsystem-depends-on ("asdf-native")
   :depends-on ("cffi" "trivial-gray-streams" "compression-protocol")
   :serial t
   :pathname "src"
   :components ((:file "package")
+               ;; $CL_STACK_BROTLI_NATIVE, native/ (overlay), lib/<os>-<arch>/ (checkout), else the system library; missing → warning (it loaded lazily before).
+               ;; Dependency first: dec and enc link against common.
+               (:native-library "brotlicommon" :versions ("1") :env "CL_STACK_BROTLI_NATIVE" :system t :optional t)
+               (:native-library "brotlidec" :versions ("1") :env "CL_STACK_BROTLI_NATIVE" :system t :optional t)
+               (:native-library "brotlienc" :versions ("1") :env "CL_STACK_BROTLI_NATIVE" :system t :optional t)
                (:file "ffi")
                (:file "api")
                (:file "streams")
