@@ -1,7 +1,10 @@
 (in-package #:cl-stack-brotli)
 
 ;; defparameter: SBCL DEFCONSTANT on strings trips DEFCONSTANT-UNEQL on reload.
-(defparameter +brotli-version+ "1.2.1"
+(defparameter +brotli-version+
+  (let ((parts (uiop:split-string (asdf:component-version (asdf:find-system "cl-stack-brotli"))
+                                  :separator ".")))
+    (format nil "~{~A~^.~}" (subseq parts 0 (min 3 (length parts)))))
   "Brotli release this package tracks: the first three parts of the ASDF :version and OCI tag (the fourth is the package revision).")
 
 (define-condition brotli-error (error)

@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Package version, upstream + revision (default: from tag or 1.2.1.1); Brotli builds from the first three parts"
+        description: "Package version, upstream + revision (input, else v* tag, else .asd :version); Brotli builds from the first three parts"
         required: false
         default: ""
       registry:
@@ -15,12 +15,33 @@ on:
         required: false
         default: "ghcr.io"
 
-env:
-  # Package version = upstream Brotli version + package revision (as cl-stack-ssl).
-  BROTLI_VERSION_DEFAULT: "1.2.1.1"
-
 jobs:
+  # Package version = upstream Brotli version + package revision. Input, else
+  # the v* tag, else the .asd :version; Brotli builds from the first three parts.
+  resolve-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      upstream: ${{ steps.ver.outputs.upstream }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: ver
+        shell: bash
+        run: |
+          V="${{ inputs.version }}"
+          if [ -z "$V" ] && [[ "${GITHUB_REF_NAME}" == v* ]]; then
+            V="${GITHUB_REF_NAME#v}"
+          fi
+          if [ -z "$V" ]; then
+            V="$(sed -nE 's/^[[:space:]]*:version[[:space:]]+"([^"]+)".*/\1/p' cl-stack-brotli.asd | head -1)"
+          fi
+          [ -n "$V" ] || { echo "could not resolve package version" >&2; exit 1; }
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "upstream=$(echo "$V" | cut -d. -f1-3)" >> "$GITHUB_OUTPUT"
+          echo "package version=$V"
+
   build:
+    needs: resolve-version
     strategy:
       fail-fast: false
       matrix:
@@ -52,24 +73,10 @@ jobs:
         if: matrix.os == 'darwin'
         run: brew install cmake || true
 
-      - name: Resolve Brotli version
-        id: ver
-        shell: pwsh
-        run: |
-          $V = "${{ inputs.version }}"
-          if ([string]::IsNullOrEmpty($V) -and $env:GITHUB_REF_NAME -like 'v*') {
-            $V = $env:GITHUB_REF_NAME.Substring(1)
-          }
-          if ([string]::IsNullOrEmpty($V)) { $V = $env:BROTLI_VERSION_DEFAULT }
-          $U = (($V -split '\.')[0..2]) -join '.'
-          Add-Content -Path $env:GITHUB_OUTPUT -Value "version=$V"
-          Add-Content -Path $env:GITHUB_OUTPUT -Value "upstream=$U"
-          Write-Host "package version=$V Brotli=$U"
-
       - name: Build Brotli shared libs (Unix)
         if: matrix.os != 'windows'
         env:
-          BROTLI_VERSION: ${{ steps.ver.outputs.upstream }}
+          BROTLI_VERSION: ${{ needs.resolve-version.outputs.upstream }}
         run: |
           chmod +x scripts/build-brotli.sh
           ./scripts/build-brotli.sh
@@ -80,7 +87,7 @@ jobs:
         if: matrix.os == 'windows'
         shell: pwsh
         env:
-          BROTLI_VERSION: ${{ steps.ver.outputs.upstream }}
+          BROTLI_VERSION: ${{ needs.resolve-version.outputs.upstream }}
         run: |
           .\scripts\build-brotli.ps1
           New-Item -ItemType Directory -Force -Path native-bundle | Out-Null
@@ -91,21 +98,6 @@ jobs:
         with:
           name: native-${{ matrix.os }}-${{ matrix.arch }}
           path: native-bundle/
-
-  resolve-version:
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.ver.outputs.version }}
-    steps:
-      - id: ver
-        shell: bash
-        run: |
-          V="${{ inputs.version }}"
-          if [ -z "$V" ] && [[ "${GITHUB_REF_NAME}" == v* ]]; then
-            V="${GITHUB_REF_NAME#v}"
-          fi
-          [ -z "$V" ] && V="${BROTLI_VERSION_DEFAULT}"
-          echo "version=$V" >> "$GITHUB_OUTPUT"
 
   publish:
     needs: [build, resolve-version]
