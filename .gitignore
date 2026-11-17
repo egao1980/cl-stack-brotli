@@ -2,3 +2,5 @@
 /lib/
 *.fasl
 .qlot/
+cl-repo.lock
+.cl-repository/
